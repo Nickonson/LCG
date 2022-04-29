@@ -19,9 +19,11 @@ void get_pr(long *stirlings, long double *pr, unsigned long long d);
 
 void check_period(unsigned long long a, unsigned long long m, unsigned long long c, unsigned long long x);
 
-double h_sq_freq_test(unsigned long long a, unsigned long long m, unsigned long long c, unsigned long long x);
+long double h_sq_freq_test(unsigned long long a, unsigned long long m, unsigned long long c, unsigned long long x);
 
 void makeZeroArray(int *array, int length);
+
+void makeTwoNArray(unsigned long long *array, int length);
 
 int main()
 {
@@ -35,7 +37,7 @@ int main()
 
 	m = pw(2, 32);
 	printf("m = %llu\n", m);
-	
+	printf("%llu\n", m / 52);
 	// gettin 'c'
 	c = get_C(c, m);
 	printf("c = %llu\n", c);
@@ -49,18 +51,13 @@ int main()
 	s = get_S(a, m);
 	printf("s = %d\n", s);
 
-	long double h_square = poker_h_sq(a, m, c, x, m);
+	long double h_square = poker_h_sq(a, m, c, x, 52);
 	long double h_sq_without_creteriy = h_sq_freq_test(a, m, c, x);
 	
-	//0,05	0,25	0,5	 0,75	0,9	  0,95	  0,99
-	printf("theoretical h_sq for 1 000 000 calculations\n");
-	printf("       0,05            0,25             0,5            0,75             0,9        0,95        0,99\n");
-	printf("997674,9633	999045,7644	999999,3333	1000953,509	1001812,815	1002327	    1003293\n");
-	printf("poker h_sq == %.10Lf \n", h_square);
-	printf("h_sq == %.10Lf \n", h_sq_without_creteriy);
+	printf("poker h_sq == %.4Lf \n", h_square);
+	printf("h_sq freq == %.4Lf \n", h_sq_without_creteriy);
 
 	//check_period(a, m, c, x);
-	// x(n+1) = (a * xn + c) % m
 }
 
 unsigned long long pw(long long numb, int degree)
@@ -120,7 +117,7 @@ int poker_check(unsigned long long *numbs)
 		int z = 0;
 		while(z < end && results[z] != numbs[i])
 			z++;
-		if(z == end && end < 5)
+		if(z == end && z < 5)
 		{
 			results[z] = numbs[i];
 			end++;
@@ -137,7 +134,7 @@ long double poker_h_sq(unsigned long long a, unsigned long long m, unsigned long
 	long double pr[5];
 	get_pr(stirlings, pr, d);
 	for(int i = 0; i < 5; i++)
-		printf("%.40Lf \n", pr[i]);
+		printf("%.20Lf \n", pr[i]);
 	
 	//gettin data for h^2
 	unsigned long long temp_numbs_for_h_sq[5];
@@ -150,8 +147,7 @@ long double poker_h_sq(unsigned long long a, unsigned long long m, unsigned long
 		for(int z = 0; z < 5; z++)
 		{
 			x = (a * x + c) % m;
-			//temp_numbs_for_h_sq[z] = (x / 256) % d;
-			temp_numbs_for_h_sq[z] = x % d;
+			temp_numbs_for_h_sq[z] = (x / (m / d)) % d;
 		}
 		data_of_nmb_grps[poker_check(temp_numbs_for_h_sq) - 1] += 1;
 	}
@@ -163,7 +159,7 @@ long double poker_h_sq(unsigned long long a, unsigned long long m, unsigned long
 	long double h_square = 0;
 	for(int i = 0; i < 5; i++)
 	{
-		h_square +=  ((data_of_nmb_grps[i] - nn * pr[i]) * (data_of_nmb_grps[i] - nn * pr[i])) / (nn * pr[i]);
+		h_square +=  ((long double)(data_of_nmb_grps[i] - (long double)nn * pr[i]) * (data_of_nmb_grps[i] - (long double)nn * pr[i])) / (long double)(nn * pr[i]);
 	}
 	return h_square;
 }
@@ -183,10 +179,13 @@ int get_S(unsigned long long a, unsigned long long m)
 	while (s < 1000 && !found)
 	{
 		if (temp % m != 0)
+		{
 			temp *= (a - 1);
+			s++;
+		}
 		else
 			found = 1;
-		s++;
+		
 	}
 	return s;
 }
@@ -221,23 +220,28 @@ void check_period(unsigned long long a, unsigned long long m, unsigned long long
 	printf("n = %llu, m = %llu \n", n, m);
 }
 
-double h_sq_freq_test(unsigned long long a, unsigned long long m, unsigned long long c, unsigned long long x)
+long double h_sq_freq_test(unsigned long long a, unsigned long long m, unsigned long long c, unsigned long long x)
 {
-	int y[10000];
-	makeZeroArray(y, 10000);
-	int sec_period = 10000;
+	int y[65536];
+	makeZeroArray(y, 65536);
+	int interval = 65536;
 	long double h_sq = 0;
-
-	for(int i = 0; i < sec_period * 100; i++)
+	long long summ = 0;
+	for(int z = 0; z < 100; z++)
 	{
-		x = (x * a + c) % m;
-		y[x % sec_period] += 1;
+		for(int i = 0; i < 65536; i++)
+		{
+			x = (x * a + c) % m;
+			y[(x / interval)] += 1;
+		}
 	}
-	for(int i = 0; i < sec_period; i++)
-		h_sq += (y[i] - 100) * (y[i] - 100) / 100;
 
-		//h_sq += (y[i] - sec_period * 100 / sec_period) * (y[i] - sec_period * 100 / sec_period) / (sec_period * 100 / sec_period);
-	
+	// ps == 1 / 65536
+	for(int i = 0; i < 65536; i++)
+		h_sq += (y[i] - 65536.0 * 100 / 65536.0) * (y[i] - 65536.0 * 100 / 65536.0) / 6553600.0 * 65536.0;
+
+		//h_sq += (y[i] - 100.0) * (y[i] - 100.0) / 100.0;
+		//h_sq += (y[i] - 65536.0 * 100 / 65536.0) * (y[i] - 65536.0 * 100 / 65536.0) / 6553600 * 65536;
 	return h_sq;
 }
 
@@ -246,3 +250,4 @@ void makeZeroArray(int *array, int length)
 	for(int i = 0; i < length; i++)
 		array[i] = 0;
 }
+
